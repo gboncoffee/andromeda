@@ -11,21 +11,32 @@ import (
 
 import dc "github.com/bwmarrin/discordgo"
 
-// basic commands {{{
+// voice connections (I would like to manage them as an array in a bot object
+// but we cannot keep an object between calls of the handlers)
+var voices []*dc.VoiceConnection
+
+// utils {{{
+func getStringFromCommand(command *[]string) string {
+    args := ""
+    for i, c := range *command {
+        if 0 == i {
+            continue
+        } else if 1 != i {
+            args += " "
+        }
+        args += c
+    }
+    return args
+}
+// }}}
+
+// basic commands (without the bot struct) {{{
 func ping(s *dc.Session, m *dc.MessageCreate) {
     s.ChannelMessageSend(m.ChannelID, "pong!")
 }
 
 func echo(s *dc.Session, m *dc.MessageCreate, command []string) {
-    msg := ""
-    for i, c := range command {
-        if 0 == i {
-            continue
-        }
-        msg += " "
-        msg += c
-    }
-    s.ChannelMessageSend(m.ChannelID, msg)
+    s.ChannelMessageSend(m.ChannelID, getStringFromCommand(&command))
 }
 
 func unknown_command(s *dc.Session, m *dc.MessageCreate, command string) {
@@ -36,7 +47,6 @@ func unknown_command(s *dc.Session, m *dc.MessageCreate, command string) {
 // call handling {{{
 
 // join {{{
-
 func getVoiceChannel(ch *string, channels []*dc.Channel) *dc.Channel {
     for _, channel := range channels {
         if dc.ChannelTypeGuildVoice == channel.Type && channel.Name == *ch {
@@ -53,16 +63,7 @@ func join(s *dc.Session, m *dc.MessageCreate, command []string) {
         return
     }
 
-    // get channel
-    channel_name := ""
-    for i, c := range command {
-        if 0 == i {
-            continue
-        } else if 1 != i {
-            channel_name += " "
-        }
-        channel_name += c
-    }
+    channel_name := getStringFromCommand(&command)
     channel := getVoiceChannel(&channel_name, guild.Channels)
 
     if nil == channel {
@@ -87,12 +88,36 @@ func join(s *dc.Session, m *dc.MessageCreate, command []string) {
     if !vc.Ready {
         s.ChannelMessageSend(m.ChannelID, "Connection to voice channel timeouted.")
         return
+    } else {
+        voices = append(voices, vc)
     }
 }
 // }}}
 
 // disjoin {{{
 func disjoin(s *dc.Session, m *dc.MessageCreate, command []string) {
+    guild, err := s.State.Guild(m.GuildID)
+    // wtf no guild for Andromeda?
+    if nil != err {
+        return
+    }
+
+    channel_name := getStringFromCommand(&command)
+    channel := getVoiceChannel(&channel_name, guild.Channels)
+
+    if nil == channel {
+        s.ChannelMessageSend(m.ChannelID, "That channel doesn't exists, you silly!")
+        return
+    }
+
+    for _, v := range voices {
+        if v.ChannelID == channel.ID {
+            v.Disconnect()
+            return
+        }
+    }
+
+    s.ChannelMessageSend(m.ChannelID, "I'm not connected to that channel, you silly!")
 }
 // }}}
 

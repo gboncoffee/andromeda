@@ -33,43 +33,44 @@ func unknown_command(s *dc.Session, m *dc.MessageCreate, command string) {
 }
 // }}}
 
-func userIsOnChannel(user *string, channel *dc.Channel) bool {
-    for _, u := range channel.Members {
-        if u.ID == *user {
-            return true
-        }
-    }
-    return false
-}
-
-func getUserVoiceChannel(user *string, channels []*dc.Channel) *dc.Channel {
+// call handling {{{
+func getVoiceChannel(ch *string, channels []*dc.Channel) *dc.Channel {
     for _, channel := range channels {
-        if dc.ChannelTypeGuildVoice == channel.Type {
-            // if userIsOnChannel(user, channel) {
+        if dc.ChannelTypeGuildVoice == channel.Type && channel.Name == *ch {
             return channel
-            // }
         }
     }
     return nil
 }
 
-func join(s *dc.Session, m *dc.MessageCreate) {
-    author     := m.Author.ID
+func join(s *dc.Session, m *dc.MessageCreate, command []string) {
     guild, err := s.State.Guild(m.GuildID)
     // wtf no guild for Andromeda?
     if nil != err {
         return
     }
-    channel := getUserVoiceChannel(&author, guild.Channels)
+
+    // get channel
+    channel_name := ""
+    for i, c := range command {
+        if 0 == i {
+            continue
+        } else if 1 != i {
+            channel_name += " "
+        }
+        channel_name += c
+    }
+    fmt.Println("channel name: ", channel_name)
+    channel := getVoiceChannel(&channel_name, guild.Channels)
 
     if nil == channel {
-        s.ChannelMessageSend(m.ChannelID, "You're not connect to any voice channel!")
+        s.ChannelMessageSend(m.ChannelID, "That channel doesn't exists, you silly!")
         return
     }
 
     vc, err := s.ChannelVoiceJoin(m.GuildID, channel.ID, false, true)
     if nil != err {
-        s.ChannelMessageSend(m.ChannelID, "Cannot connect to your voice channel!")
+        s.ChannelMessageSend(m.ChannelID, "Cannot connect to that voice channel!")
         return
     }
 
@@ -86,6 +87,7 @@ func join(s *dc.Session, m *dc.MessageCreate) {
         return
     }
 }
+// }}}
 
 // connection stuff {{{
 func connectToDiscord(token string) *dc.Session {
@@ -123,7 +125,7 @@ func messageCreate(s *dc.Session, m *dc.MessageCreate) {
     case "echo":
         echo(s, m, command)
     case "join":
-        join(s, m)
+        join(s, m, command)
     default:
         unknown_command(s, m, command[0])
     }

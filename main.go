@@ -34,6 +34,9 @@ func unknown_command(s *dc.Session, m *dc.MessageCreate, command string) {
 // }}}
 
 // call handling {{{
+
+// join {{{
+
 func getVoiceChannel(ch *string, channels []*dc.Channel) *dc.Channel {
     for _, channel := range channels {
         if dc.ChannelTypeGuildVoice == channel.Type && channel.Name == *ch {
@@ -60,7 +63,6 @@ func join(s *dc.Session, m *dc.MessageCreate, command []string) {
         }
         channel_name += c
     }
-    fmt.Println("channel name: ", channel_name)
     channel := getVoiceChannel(&channel_name, guild.Channels)
 
     if nil == channel {
@@ -89,7 +91,14 @@ func join(s *dc.Session, m *dc.MessageCreate, command []string) {
 }
 // }}}
 
-// connection stuff {{{
+// disjoin {{{
+func disjoin(s *dc.Session, m *dc.MessageCreate, command []string) {
+}
+// }}}
+
+// }}}
+
+// message create and connection stuff {{{
 func connectToDiscord(token string) *dc.Session {
     session, err := dc.New("Bot " + token)
     if nil != err {
@@ -97,9 +106,7 @@ func connectToDiscord(token string) *dc.Session {
     }
     return session
 }
-// }}}
 
-// message create {{{
 func messageCreate(s *dc.Session, m *dc.MessageCreate) {
 
     // ignore messages by the bot itself
@@ -126,6 +133,8 @@ func messageCreate(s *dc.Session, m *dc.MessageCreate) {
         echo(s, m, command)
     case "join":
         join(s, m, command)
+    case "disjoin":
+        disjoin(s, m, command)
     default:
         unknown_command(s, m, command[0])
     }
